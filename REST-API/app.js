@@ -56,7 +56,11 @@ app.use((error, req, res, next) => {
 
 mongoose.connect('mongodb+srv://vatsal:Password@cluster0.6j7r0.mongodb.net/restapi?retryWrites=true')
 .then(result => {
-    app.listen(8080);
+    const server = app.listen(8080);
+    const io = require('./socket').init(server);
+    io.on('connection', socket => {
+        console.log('Connected')
+    })
 })
 .catch(err => console.log(err));
 
