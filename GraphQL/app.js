@@ -1,4 +1,5 @@
 const path = require('path');
+const fs = require('fs');
 
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -7,6 +8,7 @@ const multer = require('multer');
 const { graphqlHTTP } = require('express-graphql');
 const graphqlSchema = require('./graphql/schema');
 const graphqlResolver = require('./graphql/resolvers');
+const auth = require('./middleware/auth')
 
 const app = express();
 
@@ -40,18 +42,33 @@ app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'OPTIONS, GET, POST, PUT, PATCH, DELETE');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    if(req.method == 'OPTIONS') {
+    if (req.method == 'OPTIONS') {
         return res.sendStatus(200);
     }
     next();
 });
+
+app.use(auth);
+
+app.put('/post-image', (req,res,next)=>{
+    if(!req.isAuth) {
+        throw new Error('Not Authenticated!')
+    }
+    if(!req.file) {
+        return res.status(200).json({message: 'No File Provided!'})
+    }
+    if(req.body.oldPath) {
+        clearImage(req.body.oldPath)
+    }
+    return res.status(201).json({message: 'File Stored', filePath: req.file.path})
+})
 
 app.use('/graphql', graphqlHTTP({
     schema: graphqlSchema,
     rootValue: graphqlResolver,
     graphiql: true,
     formatError(err) {
-        if(!err.originalError) {
+        if (!err.originalError) {
             return err;
         }
         const data = err.originalError.data;
@@ -60,7 +77,7 @@ app.use('/graphql', graphqlHTTP({
         return { message: message, status: code, data: data }
     }
 }));
- 
+
 app.use((error, req, res, next) => {
     console.log(error);
     const status = error.statusCode || 500;
@@ -77,4 +94,7 @@ mongoose.connect('mongodb+srv://vatsal:Password@cluster0.6j7r0.mongodb.net/resta
 
 
 
-
+const clearImage = filePath => {
+  filePath = path.join(__dirname,'..',filePath);
+  fs.unlink(filePath, err=> console.log(err))
+}
